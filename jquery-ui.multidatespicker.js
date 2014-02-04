@@ -199,7 +199,6 @@
 				var minDate = null;
 				var maxDate = null;
 
-
 				// Remove all previously picked/restricted dates;
 				methods.removeDates.apply(this, [picker.recurDates, 'picked']);
 				methods.removeDates.apply(this, [picker.fakeDisabledDates, 'disabled']);
@@ -210,31 +209,66 @@
 						minDate = weekMinDate;
 						maxDate = yearMaxDate;
 
-						// A hack to allow picking disabled months;
-						picker.fakeDisabledDates = methods.getDatesBetween((new Date(weekMaxDate.getTime() + (24 * 60 * 60 * 1000))), yearMaxDate);
-						methods.addDates.call(this, picker.fakeDisabledDates, 'disabled');
-
 						picker.initialRecurDates = methods.keepInitialRecurDates(minDate, maxDate, picker.dates.picked);
-						// This is where the recurring happens;
-						for (var i in picker.initialRecurDates) {
+						if (picker.initialRecurDates.length > 0) {
+							// A hack to allow picking disabled months;
+							picker.fakeDisabledDates = methods.getDatesBetween((new Date(weekMaxDate.getTime() + (24 * 60 * 60 * 1000))), yearMaxDate);
+							methods.addDates.call(this, picker.fakeDisabledDates, 'disabled');
 
-							var weekDay = picker.initialRecurDates[i];
+							// This is where the recurring happens;
+							for (var i in picker.initialRecurDates) {
 
-							var d = new Date(weekDay.getTime() + (7 * 24 * 60 * 60 * 1000));
-							// Push all according weeks in the year;
-							while (d <= yearMaxDate) {
-								picker.recurDates.push(d);
-								d = new Date(d.getTime() + (7 * 24 * 60 * 60 * 1000));
+								var day = picker.initialRecurDates[i];
+
+								var d = new Date(day.getTime() + (7 * 24 * 60 * 60 * 1000));
+								while (d <= yearMaxDate) {
+									picker.recurDates.push(d);
+									d = new Date(d.getTime() + (7 * 24 * 60 * 60 * 1000));
+								}
+								methods.addDates.apply(this, [picker.recurDates, 'picked']);
 							}
-							methods.addDates.apply(this, [picker.recurDates, 'picked']);
 						}
 						break;
 					}
 					case 'month': {
 						minDate = monthMinDate;
-						maxDate = monthMaxDate;
+						maxDate = yearMaxDate;
 
 						picker.initialRecurDates = methods.keepInitialRecurDates(minDate, maxDate, picker.dates.picked);
+						if (picker.initialRecurDates.length > 0) {
+							// A hack to allow picking disabled months;
+							picker.fakeDisabledDates = methods.getDatesBetween((new Date(monthMaxDate.getTime() + (24 * 60 * 60 * 1000))), yearMaxDate);
+							methods.addDates.call(this, picker.fakeDisabledDates, 'disabled');
+
+							// This is where the recurring happens;
+							for (var i in picker.initialRecurDates) {
+
+								var day = picker.initialRecurDates[i];
+								var year = day.getFullYear();
+								var date = day.getDate();
+
+								var d;
+								// Check if a next month has a date;
+								if (new Date(year, day.getMonth() + 2, 0).getDate() >= date) {
+									d = new Date(year, day.getMonth() + 1, date);
+								} else {
+									// Create new date with first day just to get proper month for next dates;
+									d = new Date(year, day.getMonth() + 1, 1);
+								}
+								while (d <= yearMaxDate) {
+									if (d.getDate() === date) {
+										picker.recurDates.push(d);
+									}
+
+									if (new Date(year, d.getMonth() + 2, 0).getDate() >= date) {
+										d = new Date(year, d.getMonth() + 1, date);
+									} else {
+										d = new Date(year, d.getMonth() + 1, 1);
+									}
+								}
+								methods.addDates.apply(this, [picker.recurDates, 'picked']);
+							}
+						}
 						break;
 					}
 					case 'year': {
@@ -310,6 +344,7 @@
 
 					var dates = picker.dates.picked.slice(0);
 					methods.removeDates.call(that, dates);
+					methods.removeDates.apply(that, [picker.fakeDisabledDates, 'disabled']);
 					triggerSelect.call(that);
 				});
 			},
