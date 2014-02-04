@@ -46,12 +46,7 @@
 			this.multiDatesPicker.dates[type].sort(methods.compareDates);
 		}
 		function dateConvert(date, desired_type, date_format) {
-			if(!desired_type) desired_type = 'object';/*
-			if(!date_format && (typeof date == 'string')) {
-				date_format = $(this).datepicker('option', 'dateFormat');
-				if(!date_format) date_format = $.datepicker._defaults.dateFormat;
-			}
-			*/
+			if(!desired_type) desired_type = 'object';
 			return methods.dateConvert.call(this, date, desired_type, date_format);
 		}
 		
@@ -103,21 +98,6 @@
 						$this
 							.datepicker("option", "minDate", minDate || picker.minDate)
 							.datepicker("option", "maxDate", maxDate || picker.maxDate);
-
-						/* Commenting this section out until it can be tested more
-							// issue #23
-							if(methods.compareDates($this.datepicker("option", "minDate"), min_date) !== 0)
-								$this.datepicker("option", "minDate", min_date)
-							if(methods.compareDates($this.datepicker("option", "maxDate"), max_date) !== 0)
-								$this.datepicker("option", "maxDate", max_date)
-						} else {
-							// issue #23
-							if(methods.compareDates($this.datepicker("option", "minDate"), this.multiDatesPicker.minDate) !== 0)
-								$this.datepicker("option", "minDate", this.multiDatesPicker.minDate);
-							if(methods.compareDates($this.datepicker("option", "maxDate"), this.multiDatesPicker.maxDate) !== 0)
-								$this.datepicker("option", "maxDate", this.multiDatesPicker.maxDate);
-						}
-						*/
 
 						if(this.tagName == 'INPUT') { // for inputs
 							$this.val(
@@ -594,7 +574,6 @@
 								case 'enableRecurring':
 									this.multiDatesPicker[option] = options[option];
 									break;
-								//default: $.error('Option ' + option + ' ignored for mode "'.options.mode.'".');
 							}
 						break;
 					case 'daysRange':
@@ -607,7 +586,6 @@
 								case 'adjustRangeToDisabled':
 									this.multiDatesPicker[option] = options[option];
 									break;
-								//default: $.error('Option ' + option + ' does not exist for setMode on jQuery.multiDatesPicker');
 							}
 						if(mandatory > 0) $.error('Some mandatory options not specified!');
 						break;
@@ -623,13 +601,6 @@
 						break;
 				}
 				
-				/*
-				if(options.pickableRange) {
-					$this.datepicker("option", "maxDate", options.pickableRange);
-					$this.datepicker("option", "minDate", this.multiDatesPicker.minDate);
-				}
-				*/
-
 				if(mdp_events.onSelect)
 					mdp_events.onSelect();
 				$this.datepicker('refresh');
@@ -670,10 +641,6 @@
 			return false;
 		});
 
-		if(method != 'gotDate' && method != 'getDates') {
-			aaaa = 1;
-		}
-
 		return ret;
 	};
 
@@ -682,7 +649,6 @@
 	var instActive;
 
 	$.multiDatesPicker = {version: false};
-	//$.multiDatesPicker = new MultiDatesPicker(); // singleton instance
 	$.multiDatesPicker.initialized = false;
 	$.multiDatesPicker.uuid = new Date().getTime();
 	$.multiDatesPicker.version = $.ui.multiDatesPicker.version;
