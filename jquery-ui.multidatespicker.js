@@ -7,7 +7,7 @@
  */
 (function( $ ){
 	$.extend($.ui, { multiDatesPicker: { version: "1.6.1" } });
-	
+
 	$.fn.multiDatesPicker = function(method) {
 		var mdp_arguments = arguments;
 		var ret = this;
@@ -59,7 +59,6 @@
 			init : function( options ) {
 				var $this = $(this);
 				this.multiDatesPicker.changed = false;
-				
 				var mdp_events = {
 					beforeShow: function(input, inst) {
 						this.multiDatesPicker.changed = false;
@@ -68,52 +67,48 @@
 					},
 					onSelect : function(dateText, inst) {
 						var $this = $(this);
-						this.multiDatesPicker.changed = true;
-						
+						var picker = this.multiDatesPicker;
+						picker.changed = true;
+
 						if (dateText) {
 							$this.multiDatesPicker('toggleDate', dateText);
 						}
-						
-						if (this.multiDatesPicker.mode == 'normal' && this.multiDatesPicker.dates.picked.length > 0 && this.multiDatesPicker.pickableRange) {
-							var min_date = this.multiDatesPicker.dates.picked[0],
-								max_date = new Date(min_date.getTime());
-							
-							methods.sumDays(max_date, this.multiDatesPicker.pickableRange-1);
-								
-							// counts the number of disabled dates in the range
-							if(this.multiDatesPicker.adjustRangeToDisabled) {
-								var c_disabled, 
-									disabled = this.multiDatesPicker.dates.disabled.slice(0);
-								do {
-									c_disabled = 0;
-									for(var i = 0; i < disabled.length; i++) {
-										if(disabled[i].getTime() <= max_date.getTime()) {
-											if((min_date.getTime() <= disabled[i].getTime()) && (disabled[i].getTime() <= max_date.getTime()) ) {
-												c_disabled++;
-											}
-											disabled.splice(i, 1);
-											i--;
-										}
-									}
-									max_date.setDate(max_date.getDate() + c_disabled);
-								} while(c_disabled != 0);
+
+						var firstPicked = picker.dates.picked[0];
+						$(this).find("option").prop('disabled', false);
+
+						if (picker.mode === 'rangeSelection') {
+							if (!picker.startRangeSelection) {
+								picker.startRangeSelection = dateText;
+							} else if (dateText == picker.startRangeSelection) {
+								picker.startRangeSelection = null;
 							}
-							
-							if(this.multiDatesPicker.maxDate && (max_date > this.multiDatesPicker.maxDate))
-								max_date = this.multiDatesPicker.maxDate;
-							$this
-								.datepicker("option", "minDate", min_date)
-								.datepicker("option", "maxDate", max_date);
-						} else {
-							$this
-								.datepicker("option", "minDate", this.multiDatesPicker.minDate)
-								.datepicker("option", "maxDate", this.multiDatesPicker.maxDate);
 						}
+
+						if (picker.dates.picked.length > 0) {
+							// pickableRange and enableRecurring - incompatible options, Recurring will rewrite.
+							if (picker.pickableRange) {
+								var minDate = firstPicked,
+									maxDate = new Date(minDate.getTime());
+								methods.disableRange.apply(this, [minDate, maxDate])
+							}
+
+							if (picker.enableRecurring) {
+								var dates = methods.setRecurring.apply(this, [firstPicked, picker]);
+								var minDate = dates.minDate;
+								var maxDate = dates.maxDate;
+							}
+						}
+
+						$this
+							.datepicker("option", "minDate", minDate || picker.minDate)
+							.datepicker("option", "maxDate", maxDate || picker.maxDate);
+
 						/* Commenting this section out until it can be tested more
 							// issue #23
-							if(methods.compareDates($this.datepicker("option", "minDate"), min_date) !== 0) 
+							if(methods.compareDates($this.datepicker("option", "minDate"), min_date) !== 0)
 								$this.datepicker("option", "minDate", min_date)
-							if(methods.compareDates($this.datepicker("option", "maxDate"), max_date) !== 0) 
+							if(methods.compareDates($this.datepicker("option", "maxDate"), max_date) !== 0)
 								$this.datepicker("option", "maxDate", max_date)
 						} else {
 							// issue #23
@@ -123,15 +118,15 @@
 								$this.datepicker("option", "maxDate", this.multiDatesPicker.maxDate);
 						}
 						*/
-						
+
 						if(this.tagName == 'INPUT') { // for inputs
 							$this.val(
 								$this.multiDatesPicker('getDates', 'string')
 							);
 						}
 						
-						if(this.multiDatesPicker.originalOnSelect && dateText)
-							this.multiDatesPicker.originalOnSelect.call(this, dateText, inst);
+						if(picker.originalOnSelect && dateText)
+							picker.originalOnSelect.call(this, dateText, inst);
 						
 						// START aqisnotliquid
 						// Allows for the following tags to act as altField - input, textarea, p, span, div
@@ -179,13 +174,19 @@
 					this.multiDatesPicker.originalOnClose = options.onClose;
 					
 					$this.datepicker(options);
-					
+
 					this.multiDatesPicker.minDate = $.datepicker._determineDate(this, options.minDate, null);
 					this.multiDatesPicker.maxDate = $.datepicker._determineDate(this, options.maxDate, null);
 					
 					if(options.addDates) methods.addDates.call(this, options.addDates);
 					if(options.addDisabledDates)
 						methods.addDates.call(this, options.addDisabledDates, 'disabled');
+					if(options.enableRecurring) {
+						methods.constructRecurPanel.call(this, this.multiDatesPicker, mdp_events.onSelect);
+						this.multiDatesPicker.initialRecurDates = [];
+						this.multiDatesPicker.recurDates = [];
+						this.multiDatesPicker.fakeDisabledDates = [];
+					}
 					
 					methods.setMode.call(this, options);
 				} else {
@@ -200,6 +201,168 @@
 				var altFieldOption = $this.datepicker('option', 'altField');
 				if (altFieldOption) $(altFieldOption).val($this.multiDatesPicker('getDates', 'string'));
 			},
+			setRecurring: function(firstPicked, picker) {
+				//Set pickable range;
+				var year = firstPicked.getFullYear();
+				var month = firstPicked.getMonth();
+				var day = firstPicked.getDay();
+
+				var weekMinDate = new Date(year, month, firstPicked.getDate() - day);
+				var weekMaxDate = new Date(year, month, firstPicked.getDate() + (6 - day));
+
+				var monthMinDate = new Date(year, month, 1);
+				var monthMaxDate = new Date(year, month, methods.getNumberOfDays(year, month));
+
+				var yearMinDate = new Date(year, 0, 1);
+				var yearMaxDate = new Date(year, 11, methods.getNumberOfDays(year, 11));
+
+				var minDate = null;
+				var maxDate = null;
+
+
+				// Remove all previously picked/restricted dates;
+				methods.removeDates.apply(this, [picker.recurDates, 'picked']);
+				methods.removeDates.apply(this, [picker.fakeDisabledDates, 'disabled']);
+				picker.recurDates = [];
+				picker.fakeDisabledDates = [];
+				switch (picker.recurringPeriod) {
+					case 'week': {
+						minDate = weekMinDate;
+						maxDate = yearMaxDate;
+
+						// A hack to allow picking disabled months;
+						picker.fakeDisabledDates = methods.getDatesBetween((new Date(weekMaxDate.getTime() + (24 * 60 * 60 * 1000))), yearMaxDate);
+						methods.addDates.call(this, picker.fakeDisabledDates, 'disabled');
+
+						picker.initialRecurDates = methods.keepInitialRecurDates(minDate, maxDate, picker.dates.picked);
+						// This is where the recurring happens;
+						for (var i in picker.initialRecurDates) {
+
+							var weekDay = picker.initialRecurDates[i];
+
+							var d = new Date(weekDay.getTime() + (7 * 24 * 60 * 60 * 1000));
+							// Push all according weeks in the year;
+							while (d <= yearMaxDate) {
+								picker.recurDates.push(d);
+								d = new Date(d.getTime() + (7 * 24 * 60 * 60 * 1000));
+							}
+							methods.addDates.apply(this, [picker.recurDates, 'picked']);
+						}
+						break;
+					}
+					case 'month': {
+						minDate = monthMinDate;
+						maxDate = monthMaxDate;
+
+						picker.initialRecurDates = methods.keepInitialRecurDates(minDate, maxDate, picker.dates.picked);
+						break;
+					}
+					case 'year': {
+						minDate = yearMinDate;
+						maxDate = yearMaxDate;
+
+						picker.initialRecurDates = methods.keepInitialRecurDates(minDate, maxDate, picker.dates.picked);
+						break;
+					}
+					default: {
+						// No recur dates if no recur period;
+						picker.initialRecurDates = [];
+					}
+				}
+
+				// Disable the select options;
+				for (var i = 0; i < picker.initialRecurDates.length; i++) {
+					if (picker.initialRecurDates[i] > yearMaxDate || picker.initialRecurDates[i] < yearMinDate)	{
+						$(this).find("option[value=year], option[value=month], option[value=week]").prop('disabled', true);
+						break;
+					} else if (picker.initialRecurDates[i] > monthMaxDate || picker.initialRecurDates[i] < monthMinDate) {
+						$(this).find("option[value=month], option[value=week]").prop('disabled', true);
+						break;
+					} else if (picker.initialRecurDates[i] > weekMaxDate || picker.initialRecurDates[i] < weekMinDate) {
+						$(this).find("option[value=week]").prop('disabled', true);
+						break;
+					}
+				}
+
+				// If anything is actually chosen, pass the picking boundaries;
+				if (picker.initialRecurDates.length > 0) {
+					return {minDate: minDate, maxDate: maxDate};
+				} else {
+					return {minDate: null, maxDate: null};
+				}
+			},
+			keepInitialRecurDates: function(minDate, maxDate, pickedDates) {
+				var arr = [];
+				if (minDate && maxDate) {
+					for (var i = 0; i < pickedDates.length; i++) {
+						if (pickedDates[i] <= maxDate && pickedDates[i] >= minDate)	{
+							arr.push(pickedDates[i]);
+						}
+					}
+					return arr;
+				} else {
+					return [];
+				}
+
+			},
+			getNumberOfDays: function(year, month) {
+				return new Date(year, month + 1, 0).getDate();
+			},
+			constructRecurPanel: function(picker, triggerSelect) {
+				var bar = $('<div class="mdp-recur-panel"><label for="mdp-recur">Recur: <select name="mdp-recur">' +
+					'<option value="none">None</option>' +
+					'<option value="week">Weekly</option>' +
+					'<option value="month">Monthly</option>' +
+					'<option value="year" selected>Yearly</option>' +
+					'</select><button class="mdp-clear">Clear</button></label></div>');
+				$(this).append(bar);
+				var that = this;
+
+				picker.recurringPeriod = bar.find('select').val();
+				bar.find('select').on('change', function() {
+					picker.recurringPeriod = $(this).val();
+					triggerSelect.call(that);
+				});
+				bar.find('.mdp-clear').on('click', function() {
+					if (picker.startRangeSelection) {
+						picker.startRangeSelection = null;
+					}
+
+					var dates = picker.dates.picked.slice(0);
+					methods.removeDates.call(that, dates);
+					triggerSelect.call(that);
+				});
+			},
+			disableRange: function(minDate, maxDate) {
+				var $this = $(this);
+				var picker = this.multiDatesPicker;
+				methods.sumDays(maxDate, picker.pickableRange-1);
+
+				// counts the number of disabled dates in the range
+				if(picker.adjustRangeToDisabled) {
+					var c_disabled,
+						disabled = picker.dates.disabled.slice(0);
+					do {
+						c_disabled = 0;
+						for(var i = 0; i < disabled.length; i++) {
+							if(disabled[i].getTime() <= maxDate.getTime()) {
+								if((minDate.getTime() <= disabled[i].getTime()) && (disabled[i].getTime() <= maxDate.getTime()) ) {
+									c_disabled++;
+								}
+								disabled.splice(i, 1);
+								i--;
+							}
+						}
+						maxDate.setDate(maxDate.getDate() + c_disabled);
+					} while(c_disabled != 0);
+				}
+
+				if(picker.maxDate && (maxDate > picker.maxDate))
+					maxDate = picker.maxDate;
+				$this
+					.datepicker("option", "minDate", minDate)
+					.datepicker("option", "maxDate", maxDate);
+			},
 			compareDates : function(date1, date2) {
 				date1 = dateConvert.call(this, date1);
 				date2 = dateConvert.call(this, date2);
@@ -213,6 +376,30 @@
 						diff = date1.getDate() - date2.getDate();
 				}
 				return diff;
+			},
+			getDatesBetween : function(date1, date2, disabledDates) {
+				date1 = dateConvert.call(this, date1);
+				date2 = dateConvert.call(this, date2);
+				disabledDates = disabledDates || [];
+				disabledDates = $.map(disabledDates, function(d) {
+					return d.toString();
+				})
+				var dates = [];
+				var tmpDate = date1;
+				if (date1 < date2) {
+					while (tmpDate <= date2) {
+						var nDate = new Date(tmpDate);
+						$.inArray(nDate.toString(), disabledDates) == -1 ? dates.push(nDate) : null;
+						tmpDate = new Date(tmpDate.getTime() + (24 * 60 * 60 * 1000));;
+					}
+				} else {
+					while (tmpDate >= date2) {
+						var nDate = new Date(tmpDate);
+						$.inArray(nDate.toString(), disabledDates) == -1 ? dates.push(nDate) : null;
+						tmpDate = new Date(tmpDate.getTime() - (24 * 60 * 60 * 1000));;
+					}
+				}
+				return dates;
 			},
 			sumDays : function( date, n_days ) {
 				var origDateType = typeof date;
@@ -275,6 +462,12 @@
 					}
 				}
 				return false;
+			},
+			getRecurState: function() {
+				return $(this).find('select').val();
+			},
+			getRecurDates: function() {
+				return this.multiDatesPicker.initialRecurDates;
 			},
 			getDates : function( format, type ) {
 				if(!format) format = 'string';
@@ -365,8 +558,18 @@
 							end = this.multiDatesPicker.autoselectRange[0];
 							begin = this.multiDatesPicker.autoselectRange[1];
 						}
-						for(var i = begin; i < end; i++) 
+						for(var i = begin; i < end; i++)
 							methods.addDates.call(this, methods.sumDays(date, i), type);
+						break;
+					case 'rangeSelection':
+						this.multiDatesPicker.dates['picked'] = [];
+						var startRangeSelection = this.multiDatesPicker.startRangeSelection;
+						if (!startRangeSelection) {
+							methods.addDates.call(this, date, type);
+						} else if (date !== startRangeSelection) {
+							var dates = methods.getDatesBetween(startRangeSelection, date, this.multiDatesPicker.dates['disabled']);
+							methods.addDates.call(this, dates, 'picked')
+						}
 						break;
 					default:
 						if(methods.gotDate.call(this, date) === false) // adds dates
@@ -388,11 +591,12 @@
 								case 'minPicks':
 								case 'pickableRange':
 								case 'adjustRangeToDisabled':
+								case 'enableRecurring':
 									this.multiDatesPicker[option] = options[option];
 									break;
 								//default: $.error('Option ' + option + ' ignored for mode "'.options.mode.'".');
 							}
-					break;
+						break;
 					case 'daysRange':
 					case 'weeksRange':
 						var mandatory = 1;
@@ -400,14 +604,23 @@
 							switch(option) {
 								case 'autoselectRange':
 									mandatory--;
-								case 'pickableRange':
 								case 'adjustRangeToDisabled':
 									this.multiDatesPicker[option] = options[option];
 									break;
 								//default: $.error('Option ' + option + ' does not exist for setMode on jQuery.multiDatesPicker');
 							}
 						if(mandatory > 0) $.error('Some mandatory options not specified!');
-					break;
+						break;
+					case 'rangeSelection':
+						for(option in options)
+							switch(option) {
+								case 'pickableRange':
+								case 'adjustRangeToDisabled':
+								case 'enableRecurring':
+									this.multiDatesPicker[option] = options[option];
+									break;
+							}
+						break;
 				}
 				
 				/*
@@ -416,7 +629,7 @@
 					$this.datepicker("option", "minDate", this.multiDatesPicker.minDate);
 				}
 				*/
-				
+
 				if(mdp_events.onSelect)
 					mdp_events.onSelect();
 				$this.datepicker('refresh');
@@ -444,6 +657,8 @@
 					case 'sumDays':
 					case 'compareDates':
 					case 'dateConvert':
+					case 'getRecurDates':
+					case 'getRecurState':
 						ret = exec_result;
 				}
 				return exec_result;
@@ -454,11 +669,11 @@
 			}
 			return false;
 		});
-		
+
 		if(method != 'gotDate' && method != 'getDates') {
 			aaaa = 1;
 		}
-		
+
 		return ret;
 	};
 
