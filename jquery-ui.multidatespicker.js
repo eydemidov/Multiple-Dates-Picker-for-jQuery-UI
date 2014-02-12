@@ -181,6 +181,9 @@
 						this.multiDatesPicker.recurDates = [];
 						this.multiDatesPicker.fakeDisabledDates = [];
 					}
+					if(options.showRangeOnHover) {
+						methods.handleOnHover.call(this, this.multiDatesPicker);
+					}
 					
 					methods.setMode.call(this, options);
 				} else {
@@ -194,6 +197,43 @@
 				// Fixes the altField filled with defaultDate by default
 				var altFieldOption = $this.datepicker('option', 'altField');
 				if (altFieldOption) $(altFieldOption).val($this.multiDatesPicker('getDates', 'string'));
+			},
+			handleOnHover: function(picker) {
+				var that = this;
+				$(this).on('mouseenter', 'td', function() {
+					if (picker.startRangeSelection) {
+						var data = $(this).data();
+						var year = data.year;
+						var month = data.month;
+						var day = $(this).find('a').text();
+						methods.highlightRange.apply(that, [new Date(picker.startRangeSelection), new Date(year, month, day)]);
+					}
+				});
+			},
+			highlightRange: function(date1, date2) {
+				// Make the earliest date date1;
+				if (date1 > date2) {
+					var originalDate = date1;
+					date1 = date2;
+					date2 = originalDate;
+				}
+
+				$.each($(this).find('td'), function() {
+					var day = new Date($(this).data('year'), $(this).data('month'), parseInt($(this).text(), 10));
+					// Do not highlight the starting date;
+					console.log(day, originalDate || date1);
+					if (day >= date1 && day <= date2 && day.getTime() != (originalDate || date1).getTime()) {
+						$(this).css({
+							background: color,
+							opacity:  0.35
+						});
+					} else {
+						$(this).css({
+							background: '',
+							opacity: ''
+						});
+					}
+				});
 			},
 			setRecurring: function(firstPicked, picker) {
 				//Set pickable range;
@@ -661,6 +701,7 @@
 								case 'pickableRange':
 								case 'adjustRangeToDisabled':
 								case 'enableRecurring':
+								case 'showRangeOnHover':
 									this.multiDatesPicker[option] = options[option];
 									break;
 							}
