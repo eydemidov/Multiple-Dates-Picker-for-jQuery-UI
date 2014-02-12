@@ -77,7 +77,21 @@
 								picker.startRangeSelection = dateText;
 							} else if (dateText == picker.startRangeSelection) {
 								picker.startRangeSelection = null;
+								picker.endRangeSelection = null;
+							} else {
+								picker.endRangeSelection = dateText;
+
+								var startDate = new Date(picker.startRangeSelection);
+								var endDate = new Date(picker.endRangeSelection);
+								picker.rangeDisabledConflict = methods.countDisabled.apply(this, [startDate, endDate]) ? true : false;
 							}
+						}
+
+						if (picker.mode === 'daysRange') {
+							var endSelection = picker.autoselectRange[1];
+							var startDate = new Date(dateText);
+							var endDate = new Date(startDate.getTime() + endSelection * 24 * 60 * 60 * 1000);
+							picker.rangeDisabledConflict = methods.countDisabled.apply(this, [startDate, endDate]) ? true : false;
 						}
 
 						if (picker.dates.picked.length > 0) {
@@ -348,26 +362,43 @@
 					triggerSelect.call(that);
 				});
 			},
+			getRangeDisabledConflict: function() {
+				return this.multiDatesPicker.rangeDisabledConflict;
+			},
+			countDisabled: function(date1, date2, disabled) {
+				// Make the earliest date date1;
+				if (date1 > date2) {
+					var tmp = date1;
+					date1 = date2;
+					date2 = tmp;
+				}
+
+				var picker = this.multiDatesPicker;
+				var c_disabled;
+					disabled = disabled || picker.dates.disabled.slice(0);
+
+				c_disabled = 0;
+				for(var i = 0; i < disabled.length; i++) {
+					if(disabled[i].getTime() <= date2.getTime()) {
+						if((date1.getTime() <= disabled[i].getTime()) && (disabled[i].getTime() <= date2.getTime()) ) {
+							c_disabled++;
+						}
+						disabled.splice(i, 1);
+						i--;
+					}
+				}
+				return c_disabled;
+			},
 			disableRange: function(minDate, maxDate) {
 				var $this = $(this);
 				var picker = this.multiDatesPicker;
 				methods.sumDays(maxDate, picker.pickableRange-1);
 
-				// counts the number of disabled dates in the range
 				if(picker.adjustRangeToDisabled) {
-					var c_disabled,
-						disabled = picker.dates.disabled.slice(0);
+					var c_disabled;
+					var disabled = picker.dates.disabled.slice(0);
 					do {
-						c_disabled = 0;
-						for(var i = 0; i < disabled.length; i++) {
-							if(disabled[i].getTime() <= maxDate.getTime()) {
-								if((minDate.getTime() <= disabled[i].getTime()) && (disabled[i].getTime() <= maxDate.getTime()) ) {
-									c_disabled++;
-								}
-								disabled.splice(i, 1);
-								i--;
-							}
-						}
+						c_disabled = methods.countDisabled.apply(this, [minDate, maxDate, disabled]);
 						maxDate.setDate(maxDate.getDate() + c_disabled);
 					} while(c_disabled != 0);
 				}
@@ -665,6 +696,7 @@
 					case 'dateConvert':
 					case 'getRecurDates':
 					case 'getRecurState':
+					case 'getRangeDisabledConflict':
 						ret = exec_result;
 				}
 				return exec_result;
