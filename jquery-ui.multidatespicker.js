@@ -202,15 +202,22 @@
 				var that = this;
 				$(this).on('mouseenter', 'td', function() {
 					if (picker.startRangeSelection) {
+						picker.hlColor = picker.hlColor || window.getComputedStyle($(that).find('.ui-state-highlight')[0]).backgroundColor;
 						var data = $(this).data();
 						var year = data.year;
 						var month = data.month;
 						var day = $(this).find('a').text();
-						methods.highlightRange.apply(that, [new Date(picker.startRangeSelection), new Date(year, month, day)]);
+						methods.highlightRange.apply(that, [new Date(picker.startRangeSelection), new Date(year, month, day), picker.hlColor]);
 					}
 				});
+				$(this).on('mouseleave', function() {
+					$(this).find('td').css({
+						background: '',
+						opacity: ''
+					});
+				})
 			},
-			highlightRange: function(date1, date2) {
+			highlightRange: function(date1, date2, color) {
 				// Make the earliest date date1;
 				if (date1 > date2) {
 					var originalDate = date1;
@@ -221,7 +228,6 @@
 				$.each($(this).find('td'), function() {
 					var day = new Date($(this).data('year'), $(this).data('month'), parseInt($(this).text(), 10));
 					// Do not highlight the starting date;
-					console.log(day, originalDate || date1);
 					if (day >= date1 && day <= date2 && day.getTime() != (originalDate || date1).getTime()) {
 						$(this).css({
 							background: color,
