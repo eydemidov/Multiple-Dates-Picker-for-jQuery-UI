@@ -183,7 +183,7 @@
 						methods.addDates.call(this, options.addDisabledDates, 'disabled');
 					if(options.enableRecurring) {
 						methods.constructRecurPanel.call(this, this.multiDatesPicker, mdp_events.onSelect);
-						this.multiDatesPicker.initialRecurDates = [];
+						this.multiDatesPicker.initialSelectedDates = [];
 						this.multiDatesPicker.recurDates = [];
 						this.multiDatesPicker.fakeDisabledDates = [];
 					}
@@ -270,16 +270,16 @@
 						minDate = weekMinDate;
 						maxDate = yearMaxDate;
 
-						picker.initialRecurDates = methods.keepInitialRecurDates(minDate, maxDate, picker.dates.picked);
-						if (picker.initialRecurDates.length > 0) {
+						picker.initialSelectedDates = methods.keepInitialRecurDates(minDate, maxDate, picker.dates.picked);
+						if (picker.initialSelectedDates.length > 0) {
 							// A hack to allow picking disabled months;
-							picker.fakeDisabledDates = methods.getDatesBetween((new Date(weekMaxDate.getTime() + (24 * 60 * 60 * 1000))), yearMaxDate);
+							picker.fakeDisabledDates = methods.getDatesBetween((new Date(weekMaxDate.getTime() + (24 * 60 * 60 * 1000))), yearMaxDate, picker.dates.disabled);
 							methods.addDates.call(this, picker.fakeDisabledDates, 'disabled');
 
 							// This is where the recurring happens;
-							for (var i in picker.initialRecurDates) {
+							for (var i in picker.initialSelectedDates) {
 
-								var day = picker.initialRecurDates[i];
+								var day = picker.initialSelectedDates[i];
 
 								var d = new Date(day.getTime() + (7 * 24 * 60 * 60 * 1000));
 								while (d <= yearMaxDate) {
@@ -295,16 +295,16 @@
 						minDate = monthMinDate;
 						maxDate = yearMaxDate;
 
-						picker.initialRecurDates = methods.keepInitialRecurDates(minDate, maxDate, picker.dates.picked);
-						if (picker.initialRecurDates.length > 0) {
+						picker.initialSelectedDates = methods.keepInitialRecurDates(minDate, maxDate, picker.dates.picked);
+						if (picker.initialSelectedDates.length > 0) {
 							// A hack to allow picking disabled months;
-							picker.fakeDisabledDates = methods.getDatesBetween((new Date(monthMaxDate.getTime() + (24 * 60 * 60 * 1000))), yearMaxDate);
+							picker.fakeDisabledDates = methods.getDatesBetween((new Date(monthMaxDate.getTime() + (24 * 60 * 60 * 1000))), yearMaxDate, picker.dates.disabled);
 							methods.addDates.call(this, picker.fakeDisabledDates, 'disabled');
 
 							// This is where the recurring happens;
-							for (var i in picker.initialRecurDates) {
+							for (var i in picker.initialSelectedDates) {
 
-								var day = picker.initialRecurDates[i];
+								var day = picker.initialSelectedDates[i];
 								var year = day.getFullYear();
 								var date = day.getDate();
 
@@ -336,31 +336,31 @@
 						minDate = yearMinDate;
 						maxDate = yearMaxDate;
 
-						picker.initialRecurDates = methods.keepInitialRecurDates(minDate, maxDate, picker.dates.picked);
+						picker.initialSelectedDates = methods.keepInitialRecurDates(minDate, maxDate, picker.dates.picked);
 						break;
 					}
 					default: {
 						// No recur dates if no recur period;
-						picker.initialRecurDates = [];
+						picker.initialSelectedDates = [];
 					}
 				}
 
 				// Disable the select options;
-				for (var i = 0; i < picker.initialRecurDates.length; i++) {
-					if (picker.initialRecurDates[i] > yearMaxDate || picker.initialRecurDates[i] < yearMinDate)	{
+				for (var i = 0; i < picker.initialSelectedDates.length; i++) {
+					if (picker.initialSelectedDates[i] > yearMaxDate || picker.initialSelectedDates[i] < yearMinDate)	{
 						$(this).find("option[value=year], option[value=month], option[value=week]").prop('disabled', true);
 						break;
-					} else if (picker.initialRecurDates[i] > monthMaxDate || picker.initialRecurDates[i] < monthMinDate) {
+					} else if (picker.initialSelectedDates[i] > monthMaxDate || picker.initialSelectedDates[i] < monthMinDate) {
 						$(this).find("option[value=month], option[value=week]").prop('disabled', true);
 						break;
-					} else if (picker.initialRecurDates[i] > weekMaxDate || picker.initialRecurDates[i] < weekMinDate) {
+					} else if (picker.initialSelectedDates[i] > weekMaxDate || picker.initialSelectedDates[i] < weekMinDate) {
 						$(this).find("option[value=week]").prop('disabled', true);
 						break;
 					}
 				}
 
 				// If anything is actually chosen, pass the picking boundaries;
-				if (picker.initialRecurDates.length > 0) {
+				if (picker.initialSelectedDates.length > 0) {
 					return {minDate: minDate, maxDate: maxDate};
 				} else {
 					return {minDate: null, maxDate: null};
@@ -560,7 +560,7 @@
 				return $(this).find('select').val();
 			},
 			getRecurDates: function() {
-				return this.multiDatesPicker.initialRecurDates;
+				return this.multiDatesPicker.initialSelectedDates;
 			},
 			getDates : function( format, type ) {
 				if(!format) format = 'string';
