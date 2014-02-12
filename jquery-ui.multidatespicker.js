@@ -69,6 +69,12 @@
 							$this.multiDatesPicker('toggleDate', dateText);
 						}
 
+						// Remove all previously picked/restricted dates, if any;
+						methods.removeDates.apply(this, [picker.recurDates, 'picked']);
+						methods.removeDates.apply(this, [picker.fakeDisabledDates, 'disabled']);
+						picker.recurDates = [];
+						picker.fakeDisabledDates = [];
+
 						var firstPicked = picker.dates.picked[0];
 						$(this).find("option").prop('disabled', false);
 
@@ -231,7 +237,7 @@
 					if (day >= date1 && day <= date2 && day.getTime() != (originalDate || date1).getTime()) {
 						$(this).css({
 							background: color,
-							opacity:  0.35
+							opacity:  0.70
 						});
 					} else {
 						$(this).css({
@@ -259,11 +265,6 @@
 				var minDate = null;
 				var maxDate = null;
 
-				// Remove all previously picked/restricted dates;
-				methods.removeDates.apply(this, [picker.recurDates, 'picked']);
-				methods.removeDates.apply(this, [picker.fakeDisabledDates, 'disabled']);
-				picker.recurDates = [];
-				picker.fakeDisabledDates = [];
 				switch (picker.recurringPeriod) {
 					case 'week': {
 						minDate = weekMinDate;
